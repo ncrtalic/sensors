@@ -1,0 +1,10 @@
+.venv
+
+# Ignore Vite build output
+frontend/dist/
+
+# Ignore frontend's node_modules
+frontend/node_modules/
+
+# Ignore frontend Vite environment files
+frontend/.env

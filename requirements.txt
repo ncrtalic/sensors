@@ -1,0 +1,11 @@
+# Web framework
+Flask
+
+# Plotting
+matplotlib
+
+# LabJack LJM library
+labjack-ljm
+
+# Optional: for type hinting if you're using tools like mypy (not required to run)
+typing-extensions
