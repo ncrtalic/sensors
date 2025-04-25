@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LabJack Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; margin: 20px; }
+        h1 { color: #333; }
+        h2 { color: #555; margin-top: -10px; }
+        ul { list-style: none; padding: 0; }
+        li { margin: 8px 0; }
+        button { padding: 10px 15px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background-color: #45a049; }
+        canvas { background: white; border: 1px solid #ccc; margin-top: 20px; }
+        .sensor-list { display: flex; flex-wrap: wrap; gap: 15px; }
+        .sensor-item { width: 150px; text-align: center; background-color: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 8px; }
+        .sensor-item h3 { margin: 0; font-size: 14px; color: #333; }
+        .sensor-item p { margin: 5px 0; font-size: 18px; font-weight: bold; color: #555; }
+    </style>
+    <script>
+        const dataBuffer = { voltage: [], pressure_200: [], pressure_300: [], timestamps: [] };
+
+        async function fetchData() {
+            const response = await fetch("/data");
+            const data = await response.json();
+            const timestamp = new Date().toLocaleTimeString();
+
+            // Update start time if still showing "Loading..."
+            const startElem = document.getElementById("startTime");
+            if (startElem.innerText === "Loading...") {
+                startElem.innerText = data.start_time;
+            }
+
+            for (const key in data.sensor_data) {
+                const htmlKey = key.replace(/\s+/g, '_');
+                const element = document.getElementById(htmlKey);
+                if (element) {
+                    const value = data.sensor_data[key];
+                    // Check if the value is a number
+                    if (typeof value === "number") {
+                        element.innerText = value.toFixed(2); // Format numbers to 2 decimal places
+                    } else {
+                        element.innerText = value; // Display non-numeric values as-is
+                    }
+                }
+            }
+
+            // Update pressure switch state
+            const switchElem = document.getElementById("pressure_switch");
+            if (switchElem) {
+                switchElem.innerText = data.sensor_data.pressure_switch;
+            }
+
+            // Push to chart buffer
+            dataBuffer.timestamps.push(timestamp);
+            dataBuffer.voltage.push(data.sensor_data.voltage);
+            dataBuffer.pressure_200.push(data.sensor_data.pressure_200);
+            dataBuffer.pressure_300.push(data.sensor_data.pressure_300);
+
+            if (dataBuffer.timestamps.length > 50) {
+                for (const key in dataBuffer) dataBuffer[key].shift();
+            }
+
+            // Update runtime display
+            const runSecs = data.run_time;
+            const hours = Math.floor(runSecs / 3600);
+            const minutes = Math.floor((runSecs % 3600) / 60);
+            const seconds = Math.floor(runSecs % 60);
+            document.getElementById("runtime").innerText =
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        async function saveAs() {
+            let newFilename = prompt("Enter new filename:", "saved_data");
+            if (!newFilename) return;
+            if (!newFilename.toLowerCase().endsWith(".csv")) {
+                newFilename += ".csv";
+            }
+
+            const response = await fetch("/prepare_download", {
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ newFilename })
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                window.location.href = result.downloadUrl;
+            } else {
+                alert("Error: " + result.error);
+            }
+        }
+
+        window.onload = function () {
+            fetchData(); // initial call
+            setInterval(fetchData, 1000); // refresh every second
+            console.log("Voltage:", data.sensor_data.voltage);
+            console.log("Temp1:", data.sensor_data.temp1);
+        }
+    </script>
+</head>
+<body>
+    <h1>LabJack Dashboard</h1>
+    <h2>Start Time: <span id="startTime">Loading...</span></h2>
+    <h2>Runtime: <span id="runtime">00:00:00</span></h2>
+    <button onclick="saveAs()">Save Data as CSV</button>
+    <div class="sensor-list">
+        <div class="sensor-item"><h3>Voltage</h3><p id="voltage">0.00</p></div>
+        <div class="sensor-item"><h3>Cond Fan Current</h3><p id="Cond_Fan_Current">0.00</p></div>
+        <div class="sensor-item"><h3>Evap Fan Current</h3><p id="Evap_Fan_Current">0.00</p></div>
+        <div class="sensor-item"><h3>Compressor Current</h3><p id="Compressor_Current">0.00</p></div>
+        <div class="sensor-item"><h3>Total Current</h3><p id="Total_Current">0.00</p></div>
+        <div class="sensor-item"><h3>Pressure 200</h3><p id="pressure_200">0.00</p></div>
+        <div class="sensor-item"><h3>Pressure 300</h3><p id="pressure_300">0.00</p></div>
+        <div class="sensor-item"><h3>Temp 1</h3><p id="temp1">0.00</p></div>
+        <div class="sensor-item"><h3>Temp 2</h3><p id="temp2">0.00</p></div>
+        <div class="sensor-item"><h3>Temp 3</h3><p id="temp3">0.00</p></div>
+        <div class="sensor-item"><h3>LabJack Temp</h3><p id="labjack_temp">0.00</p></div>
+        <div class="sensor-item"><h3>Air Temp</h3><p id="air_temp">0.00</p></div>
+        <div class="sensor-item"><h3>Pressure Switch</h3><p id="pressure_switch">Closed</p></div>
+    </div>
+</body>
+</html>
